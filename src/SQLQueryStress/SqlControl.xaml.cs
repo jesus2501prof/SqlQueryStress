@@ -25,6 +25,11 @@ namespace SQLQueryStress
             get { return AvalonEdit.SelectedText; }
         }
 
+        public string AutoSelectedText
+        {
+            set { AvalonEdit.SelectAll(); }
+        }
+
         
         private void SqlControl_OnLoaded(object sender, RoutedEventArgs e)
         {

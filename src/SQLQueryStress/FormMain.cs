@@ -5,9 +5,12 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Drawing.Imaging;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
+using System.Threading;
 
 #endregion
 
@@ -89,9 +92,28 @@ namespace SQLQueryStress
 
         private SqlControl sqlControl1;
 
-        public FormMain(CommandLineOptions runParameters) : this()
+        private string _sqlQuery;
+
+        private string _noCap;
+
+        private bool _clickeado;
+
+        public string fileName;
+
+        public FormMain(CommandLineOptions runParameters, string sqlQuery, string noCap, bool clickeado, string fileName) : this()
         {
             _runParameters = runParameters;
+            _sqlQuery = sqlQuery;
+            _noCap = noCap;
+            _clickeado = clickeado;
+            sqlControl1 = new SqlControl();
+
+            this.fileName = fileName;
+            if (_clickeado)
+            {
+                this.fileName = fileName;
+            }
+                
 
             if (string.IsNullOrWhiteSpace(_runParameters.SettingsFile) == false)
             {
@@ -132,6 +154,24 @@ namespace SQLQueryStress
             loadSettingsFileDialog.DefaultExt = "json";
             loadSettingsFileDialog.Filter = Resources.ConfigFiles;
             loadSettingsFileDialog.FileOk += loadSettingsFileDialog_FileOk;
+
+            this.Load += (s, e) =>
+            {
+                this.BeginInvoke(new Action(() =>
+                {
+                    // Se ejecuta despues del primer ciclo de mensajes
+                    if (_clickeado)
+                    {
+                        OpenConfigFile(this.fileName);
+                        Thread.Sleep(1000);
+                        go_button_Click(go_button, EventArgs.Empty);
+                    }
+                    else
+                    {
+                        loadSettingsFileDialog.ShowDialog();
+                    }
+                }));
+            };
         }
 
         private void StartProcessing(object sender, EventArgs e)
@@ -247,6 +287,32 @@ namespace SQLQueryStress
             }
 
             progressBar1.Value = progressBar1.Minimum;
+
+            this.Refresh();
+            Thread.Sleep(1000);
+
+            // Crear directorio "Capturas" si no existe
+            string capturesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Capturas");
+            Directory.CreateDirectory(capturesDir); // No lanza excepci�n si ya existe
+
+            // Ruta completa del archivo
+            string filePath = String.Empty;
+
+            // Se toma la captura
+            Bitmap captura = WindowCapture.CaptureActiveWindow();
+
+            // Se asigna la ruta + el nombre del archivo PNG
+            if (!int.TryParse(_noCap, out _))
+            {
+                filePath = Path.Combine(capturesDir, _noCap + ".png");
+            }
+            else
+            {
+                filePath = Path.Combine(capturesDir, "capture_" + _noCap + ".png");
+            }
+            
+            captura.Save(filePath, ImageFormat.Png);
+            this.Close();
         }
 
         private void AutoSaveResults(string resultsAutoSaveFileName)
@@ -303,6 +369,9 @@ namespace SQLQueryStress
                 MessageBox.Show(Resources.MustSetValidDbConnInfo, Resources.AppTitle);
                 return;
             }
+
+            sqlControl1.Text = _sqlQuery;
+            sqlControl1.AutoSelectedText = _sqlQuery;
 
             _testStartTime = DateTime.Now;
             _testGuid = Guid.NewGuid();
@@ -382,7 +451,7 @@ namespace SQLQueryStress
             }
 
             sqlControl1.Text = _settings.MainQuery;
-            
+
             threads_numericUpDown.Value = _settings.NumThreads;
             iterations_numericUpDown.Value = _settings.NumIterations;
             queryDelay_numericUpDown.Text = _settings.DelayBetweenQueries.ToString(CultureInfo.InvariantCulture);
@@ -390,6 +459,7 @@ namespace SQLQueryStress
 
         private void loadSettingsFileDialog_FileOk(object sender, EventArgs e)
         {
+            this.fileName = loadSettingsFileDialog.FileName;
             OpenConfigFile(loadSettingsFileDialog.FileName);
         }
 
@@ -637,7 +707,6 @@ namespace SQLQueryStress
         private void FormMain_Load(object sender, EventArgs e)
         {
             var elemHost = new System.Windows.Forms.Integration.ElementHost();
-            sqlControl1 = new SqlControl();
             elemHost.Dock = DockStyle.Fill;
             elemHost.Location = new System.Drawing.Point(4, 5);
             elemHost.Margin = new Padding(4, 5, 4, 5);
@@ -645,7 +714,7 @@ namespace SQLQueryStress
             elemHost.Child = sqlControl1;
             tableLayoutPanel3.Controls.Add(elemHost, 0, 0);
         }
-
+        
     }
 }
 #pragma warning restore CA1031 // Do not catch general exception types

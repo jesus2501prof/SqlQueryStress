@@ -30,11 +30,25 @@ namespace SQLQueryStress
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            using var FormMain = new FormMain(options)
+            int noCap = 0;
+            string[] sqlSentences = SqlSentencesReader.ReadSqlSentencesWithTransactions("sentencias.sql");
+            bool clickeado = false;
+            string fileName = "";
+
+            foreach (string sqlQuery in sqlSentences)
             {
-                StartPosition = FormStartPosition.CenterScreen
-            };
-            Application.Run(FormMain);
+                string spName = SqlProcedureDetector.DetectStoredProcedure(sqlQuery);
+                string noCapOspName = spName.Equals("") ? noCap.ToString() : spName;
+
+                clickeado = noCap != 0 ? true : false;
+                using var FormMain = new FormMain(options, sqlQuery, noCapOspName, clickeado, fileName)
+                {
+                    StartPosition = FormStartPosition.CenterScreen
+                };
+                Application.Run(FormMain);
+                fileName = FormMain.fileName;
+                noCap++;
+            }       
         }
 
         private static void DisplayHelp<T>(ParserResult<T> result, IEnumerable<Error> errors)
